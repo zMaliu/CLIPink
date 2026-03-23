@@ -1,0 +1,3 @@
+[console_scripts]
+ink-batch = inkproj.cli.run_batch:main
+ink-train = inkproj.cli.train:main

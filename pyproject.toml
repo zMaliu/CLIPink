@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "inkproj"
+version = "0.1.0"
+description = "CLIP-guided sparse differentiable ink stroke rendering"
+requires-python = ">=3.9"
+dependencies = [
+  "torch",
+  "torchvision",
+  "numpy",
+  "Pillow",
+  "tqdm",
+  "ftfy",
+  "regex",
+  "pyyaml",
+]
+
+[project.scripts]
+ink-train = "inkproj.cli.train:main"
+ink-batch = "inkproj.cli.run_batch:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+inkproj = ["third_party/clip/bpe_simple_vocab_16e6.txt.gz"]
