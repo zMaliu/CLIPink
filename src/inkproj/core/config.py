@@ -25,6 +25,15 @@ class TrainConfig:
     save_every: int = 50
     tau_active: float = 0.5
     tau_white: float = 0.95
+    render_scale: int = 1
+    render_step_chunk: int = 16
+    render_diffusion_scale: float = 0.10
+    render_diffusion_min: float = 0.0
+    render_diffusion_max: float = 10.0
+    enable_highres: bool = True
+    highres_render_scale: int = 4
+    highres_steps_scale: float = 2.0
+    highres_batch: int = 1
 
 
 def _load_raw_config(path: str):

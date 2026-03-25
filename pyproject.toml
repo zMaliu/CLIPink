@@ -18,10 +18,6 @@ dependencies = [
   "pyyaml",
 ]
 
-[project.scripts]
-ink-train = "inkproj.cli.train:main"
-ink-batch = "inkproj.cli.run_batch:main"
-
 [tool.setuptools]
 package-dir = {"" = "src"}
 

@@ -16,3 +16,12 @@ w_edge: 0.22
 save_every: 50
 tau_active: 0.5
 tau_white: 0.95
+render_scale: 1
+render_step_chunk: 16
+render_diffusion_scale: 0.10
+render_diffusion_min: 0.0
+render_diffusion_max: 10.0
+enable_highres: true
+highres_render_scale: 4
+highres_steps_scale: 2.0
+highres_batch: 1
