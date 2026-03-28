@@ -12,7 +12,7 @@ def set_seed(seed: int) -> None:
         torch.cuda.manual_seed_all(int(seed))
 
 
-def sample_params(n: int, seed: int, target_img=None):
+def sample_params(n: int, seed: int, target_img=None, layered_init: bool = True):
     rng = random.Random(int(seed))
     n_base = int(n * 0.7)
     p = torch.zeros((n, 19), dtype=torch.float32)
@@ -27,7 +27,7 @@ def sample_params(n: int, seed: int, target_img=None):
         init_y = ys / float(h)
         target_rgb = np.array(target_img.convert("RGB"))
     for i in range(n):
-        is_detail = i >= n_base
+        is_detail = bool(layered_init and i >= n_base)
         if target_img is not None:
             x0, y0 = init_x[i], init_y[i]
             x2 = x0 + rng.uniform(-0.1, 0.1)
@@ -60,13 +60,20 @@ def sample_params(n: int, seed: int, target_img=None):
             aspect = rng.uniform(3.0, 6.0)
             ink = rng.uniform(1.8, 2.5)
             diff = rng.uniform(0.0, 0.02)
-        else:
+        elif layered_init:
             p_start = rng.uniform(1.0, 1.5)
             p_end = rng.uniform(0.5, 1.0)
             bw = rng.uniform(0.06, 0.15)
             aspect = rng.uniform(1.0, 2.5)
             ink = rng.uniform(0.8, 1.4)
             diff = rng.uniform(0.02, 0.1)
+        else:
+            p_start = rng.uniform(0.9, 1.6)
+            p_end = rng.uniform(0.6, 1.1)
+            bw = rng.uniform(0.03, 0.12)
+            aspect = rng.uniform(1.0, 3.5)
+            ink = rng.uniform(1.0, 2.0)
+            diff = rng.uniform(0.0, 0.08)
         p_m1 = rng.uniform(0.8, 1.4)
         p_m2 = rng.uniform(0.8, 1.4)
         gamma = rng.uniform(0.8, 1.2)

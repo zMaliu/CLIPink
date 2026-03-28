@@ -61,6 +61,9 @@ def render_strokes(params, width=128, steps=None):
     device = p.device
     n = int(p.shape[0])
     width = int(width)
+    render_profile = str(os.environ.get("STROKE_RENDER_PROFILE", "ink")).strip().lower()
+    if render_profile not in {"ink", "softline"}:
+        raise ValueError(f"Unsupported STROKE_RENDER_PROFILE: {render_profile}")
 
     render_scale = int(os.environ.get("STROKE_RENDER_SCALE", "2") or 2)
     render_scale = max(1, render_scale)
@@ -128,20 +131,23 @@ def render_strokes(params, width=128, steps=None):
         q = 0.5 * ((dxr / major_s.view(n, e - s, 1)) ** 2 + (dyr / minor_s.view(n, e - s, 1)) ** 2)
         g = torch.exp(-q)
 
-        noise_freq_x = 0.05
-        noise_freq_y = 0.5
-        coord_x = dxr * noise_freq_x
-        coord_y = dyr * noise_freq_y
-        noise = torch.sin(coord_x * 20.0) * torch.cos(coord_y * 20.0)
-        noise = (noise + 1.0) * 0.5
-        random_offset = torch.sin(xf_s.view(n, e - s, 1) * 0.1) * torch.cos(yf_s.view(n, e - s, 1) * 0.1)
-        noise = (noise + random_offset * 0.2).clamp(0.0, 1.0)
+        if render_profile == "softline":
+            noise_mask = torch.ones_like(g)
+        else:
+            noise_freq_x = 0.05
+            noise_freq_y = 0.5
+            coord_x = dxr * noise_freq_x
+            coord_y = dyr * noise_freq_y
+            noise = torch.sin(coord_x * 20.0) * torch.cos(coord_y * 20.0)
+            noise = (noise + 1.0) * 0.5
+            random_offset = torch.sin(xf_s.view(n, e - s, 1) * 0.1) * torch.cos(yf_s.view(n, e - s, 1) * 0.1)
+            noise = (noise + random_offset * 0.2).clamp(0.0, 1.0)
 
-        dryness = 1.0 - pressure_s.clamp(0.0, 1.0)
-        dryness = dryness.view(n, e - s, 1)
-        noise = (noise - 0.5) * 2.0
-        noise = torch.sigmoid(noise * 5.0)
-        noise_mask = 1.0 - (dryness * (1.0 - noise) * 0.95)
+            dryness = 1.0 - pressure_s.clamp(0.0, 1.0)
+            dryness = dryness.view(n, e - s, 1)
+            noise = (noise - 0.5) * 2.0
+            noise = torch.sigmoid(noise * 5.0)
+            noise_mask = 1.0 - (dryness * (1.0 - noise) * 0.95)
 
         g = (g * ink_s.view(n, e - s, 1) * noise_mask).clamp(0.0, 0.99)
         log_keep = log_keep + torch.log1p(-g).sum(dim=1)
@@ -151,7 +157,8 @@ def render_strokes(params, width=128, steps=None):
 
     # --- Reduced Diffusion for Sharper Edges ---
     # Only apply minimal anti-aliasing unless explicitly requested
-    diffusion_scale = float(os.environ.get("STROKE_RENDER_DIFFUSION_SCALE", "0.1") or 0.1) # Default reduced from 1.0
+    default_diffusion_scale = "0.02" if render_profile == "softline" else "0.1"
+    diffusion_scale = float(os.environ.get("STROKE_RENDER_DIFFUSION_SCALE", default_diffusion_scale) or default_diffusion_scale)
     diffusion_min = float(os.environ.get("STROKE_RENDER_DIFFUSION_MIN", "0.0") or 0.0)
     diffusion_max = float(os.environ.get("STROKE_RENDER_DIFFUSION_MAX", "10.0") or 10.0)
     diffusion_sigma = (diffusion_sigma * diffusion_scale).clamp(diffusion_min, diffusion_max)

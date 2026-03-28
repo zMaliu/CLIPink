@@ -1,0 +1,3 @@
+target: target_images/camel.png
+out_dir: runs/no_l2/default
+w_l2: 0.0

@@ -1,0 +1,3 @@
+target: target_images/camel.png
+out_dir: runs/no_ink/default
+w_ink: 0.0

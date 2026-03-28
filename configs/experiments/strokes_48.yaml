@@ -1,0 +1,3 @@
+target: target_images/camel.png
+out_dir: runs/strokes_48/default
+n_strokes: 48

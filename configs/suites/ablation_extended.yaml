@@ -1,0 +1,21 @@
+experiments:
+  - name: full
+    config: configs/experiments/full.yaml
+  - name: no_sparse
+    config: configs/experiments/no_sparse.yaml
+  - name: no_ink
+    config: configs/experiments/no_ink.yaml
+  - name: no_l2
+    config: configs/experiments/no_l2.yaml
+  - name: no_edge
+    config: configs/experiments/no_edge.yaml
+  - name: no_gate
+    config: configs/experiments/no_gate.yaml
+  - name: no_layered_init
+    config: configs/experiments/no_layered_init.yaml
+  - name: softline
+    config: configs/experiments/softline.yaml
+  - name: strokes_48
+    config: configs/experiments/strokes_48.yaml
+  - name: strokes_96
+    config: configs/experiments/strokes_96.yaml

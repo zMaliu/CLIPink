@@ -1,0 +1,4 @@
+target: target_images/camel.png
+out_dir: runs/softline/default
+render_profile: softline
+render_diffusion_scale: 0.02

@@ -22,9 +22,12 @@ class TrainConfig:
     w_ink: float = 0.10
     w_l2: float = 0.15
     w_edge: float = 0.22
+    enable_gate: bool = True
+    layered_init: bool = True
     save_every: int = 50
     tau_active: float = 0.5
     tau_white: float = 0.95
+    render_profile: str = "ink"
     render_scale: int = 1
     render_step_chunk: int = 16
     render_diffusion_scale: float = 0.10
@@ -68,4 +71,4 @@ def config_to_dict(cfg: TrainConfig):
 
 
 def default_config_path(project_root: str) -> str:
-    return os.path.join(project_root, "configs", "main_weighted.yaml")
+    return os.path.join(project_root, "configs", "experiments", "full.yaml")

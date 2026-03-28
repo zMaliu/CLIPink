@@ -29,6 +29,7 @@ def run_train(cfg: TrainConfig):
     set_seed(int(cfg.seed))
     device = torch.device("cpu" if cfg.cpu or (not torch.cuda.is_available()) else "cuda")
     ensure_dir(cfg.out_dir)
+    os.environ["STROKE_RENDER_PROFILE"] = str(cfg.render_profile)
     os.environ["STROKE_RENDER_SCALE"] = str(int(cfg.render_scale))
     os.environ["STROKE_RENDER_STEP_CHUNK"] = str(int(cfg.render_step_chunk))
     os.environ["STROKE_RENDER_DIFFUSION_SCALE"] = str(float(cfg.render_diffusion_scale))
@@ -38,7 +39,8 @@ def run_train(cfg: TrainConfig):
         f"[train] device={device} target={cfg.target} out_dir={cfg.out_dir} "
         f"n_strokes={cfg.n_strokes} width={cfg.width} steps={cfg.steps} iters={cfg.iters} "
         f"batch={cfg.batch} render_scale={cfg.render_scale} step_chunk={cfg.render_step_chunk} "
-        f"diffusion={cfg.render_diffusion_scale} highres={cfg.enable_highres}",
+        f"diffusion={cfg.render_diffusion_scale} profile={cfg.render_profile} "
+        f"gate={cfg.enable_gate} layered_init={cfg.layered_init} highres={cfg.enable_highres}",
         flush=True,
     )
     model, clip_preprocess = clip.load("ViT-B/32", device=device, jit=False)
@@ -49,18 +51,30 @@ def run_train(cfg: TrainConfig):
     target_feat = model.encode_image(target_t)
     target_feat = target_feat / target_feat.norm(dim=-1, keepdim=True)
     target_feat = target_feat.detach()
-    params_init = sample_params(int(cfg.n_strokes), int(cfg.seed), target_img=target).to(device)
+    params_init = sample_params(
+        int(cfg.n_strokes),
+        int(cfg.seed),
+        target_img=target,
+        layered_init=bool(cfg.layered_init),
+    ).to(device)
     params_clamped = params_init.clamp(1e-4, 1 - 1e-4)
     z_params = torch.log(params_clamped / (1 - params_clamped))
     z_params = z_params.clone().detach().requires_grad_(True)
-    gate_logits = torch.full((int(cfg.n_strokes),), -1.5, device=device, dtype=torch.float32, requires_grad=True)
-    opt = torch.optim.Adam([z_params, gate_logits], lr=float(cfg.lr))
+    gate_logits = torch.full((int(cfg.n_strokes),), -1.5, device=device, dtype=torch.float32)
+    if bool(cfg.enable_gate):
+        gate_logits = gate_logits.requires_grad_(True)
+        opt = torch.optim.Adam([z_params, gate_logits], lr=float(cfg.lr))
+    else:
+        opt = torch.optim.Adam([z_params], lr=float(cfg.lr))
     metrics_log = []
 
     for it in range(int(cfg.iters) + 1):
         opt.zero_grad(set_to_none=True)
         params = torch.sigmoid(z_params)
-        gates = torch.sigmoid(gate_logits).view(-1, 1, 1, 1)
+        if bool(cfg.enable_gate):
+            gates = torch.sigmoid(gate_logits).view(-1, 1, 1, 1)
+        else:
+            gates = torch.ones((int(cfg.n_strokes), 1, 1, 1), device=device, dtype=torch.float32)
         canvas = compose_canvas(params, gates, cfg.width, cfg.steps, max(1, int(cfg.batch)), render_strokes)
         clip_loss = compute_clip_loss(model, clip_preprocess, canvas, target_feat)
         sparse_loss, ink_loss, l2_loss, edge_loss = compute_regularizers(
@@ -103,7 +117,8 @@ def run_train(cfg: TrainConfig):
     with torch.no_grad():
         params = torch.sigmoid(z_params)
         np.save(os.path.join(cfg.out_dir, "params_final.npy"), params.detach().cpu().numpy())
-        np.save(os.path.join(cfg.out_dir, "gates_final.npy"), torch.sigmoid(gate_logits).detach().cpu().numpy())
+        final_gates = torch.sigmoid(gate_logits) if bool(cfg.enable_gate) else torch.ones(int(cfg.n_strokes), device=device)
+        np.save(os.path.join(cfg.out_dir, "gates_final.npy"), final_gates.detach().cpu().numpy())
         if bool(cfg.enable_highres):
             print("Rendering high-resolution final image on GPU (Parallel)...", flush=True)
             prev_render_scale = os.environ.get("STROKE_RENDER_SCALE")
@@ -113,7 +128,7 @@ def run_train(cfg: TrainConfig):
             canvas_high = torch.ones(1, 3, high_res_w, high_res_w, device=device)
             n = int(params.shape[0])
             bs = max(1, int(cfg.highres_batch))
-            gates_final = torch.sigmoid(gate_logits)
+            gates_final = final_gates
             for s in range(0, n, bs):
                 if device.type == "cuda":
                     torch.cuda.empty_cache()
@@ -154,6 +169,7 @@ def run_render_final(cfg: TrainConfig, run_dir: str):
     params = torch.from_numpy(np.load(params_path)).to(device=device, dtype=torch.float32)
     gates = torch.from_numpy(np.load(gates_path)).to(device=device, dtype=torch.float32).view(-1, 1, 1, 1)
 
+    os.environ["STROKE_RENDER_PROFILE"] = str(cfg.render_profile)
     os.environ["STROKE_RENDER_SCALE"] = str(int(cfg.highres_render_scale))
     os.environ["STROKE_RENDER_STEP_CHUNK"] = str(int(cfg.render_step_chunk))
     os.environ["STROKE_RENDER_DIFFUSION_SCALE"] = str(float(cfg.render_diffusion_scale))
